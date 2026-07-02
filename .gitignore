@@ -1,0 +1,4 @@
+node_modules/
+knowledge/**
+!knowledge/.gitkeep
+.DS_Store

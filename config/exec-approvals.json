@@ -1,0 +1,85 @@
+{
+  "version": 1,
+
+  "defaults": {
+    // Commands not matching any allowlist entry trigger the approval flow
+    "security": "allowlist",
+    "ask": "on-miss",
+    // Skills (built-in OpenClaw actions) are NOT auto-allowed;
+    // they go through the same allowlist check
+    "autoAllowSkills": false
+  },
+
+  "agents": {
+    "main": {
+      "security": "allowlist",
+      "ask": "on-miss",
+
+      // ── TIER 1: auto-approved, no prompt ──────────────────────────────────
+      // Read-only and introspection commands. Safe to run silently.
+      "allowlist": [
+
+        // Git — read-only subcommands only
+        {
+          "id": "git-read",
+          "pattern": "git",
+          "argPattern": "^(log|status|diff|show|branch|remote|fetch|ls-files|describe|tag --list)"
+        },
+
+        // File system inspection
+        { "id": "ls",   "pattern": "ls"   },
+        { "id": "cat",  "pattern": "cat"  },
+        { "id": "find", "pattern": "find" },
+        { "id": "grep", "pattern": "grep" },
+        { "id": "wc",   "pattern": "wc"   },
+        { "id": "stat", "pattern": "stat" },
+
+        // Knowledge organizer (the daily-notes script)
+        {
+          "id": "npm-run-organize",
+          "pattern": "npm",
+          "argPattern": "^run organize"
+        },
+
+        // Node scripts inside the jomon project only
+        {
+          "id": "node-scripts",
+          "pattern": "node",
+          "argPattern": "^(scripts/|~/projects/jomon/)"
+        },
+
+        // Ollama — model management and inference (all read-safe)
+        { "id": "ollama", "pattern": "ollama" },
+
+        // Process inspection
+        { "id": "ps",      "pattern": "ps"      },
+        { "id": "top",     "pattern": "top"      },
+        { "id": "df",      "pattern": "df"       },
+        { "id": "du",      "pattern": "du"       },
+        { "id": "uname",   "pattern": "uname"    },
+        { "id": "which",   "pattern": "which"    },
+        { "id": "env",     "pattern": "env"      },
+        { "id": "echo",    "pattern": "echo"     },
+        { "id": "date",    "pattern": "date"     },
+        { "id": "pwd",     "pattern": "pwd"      },
+
+        // Safe curl — GET requests only, no -X POST/PUT/DELETE/PATCH
+        {
+          "id": "curl-get",
+          "pattern": "curl",
+          "argPattern": "^(?!.*(-X\\s*(POST|PUT|DELETE|PATCH)|--data|--upload-file|-T\\s|-d\\s))"
+        }
+
+        // ── Everything else hits the Telegram approval flow ─────────────────
+        //
+        // Examples of what will ask for approval:
+        //   rm, mv, cp (to non-workspace paths)
+        //   git push / git reset / git checkout
+        //   npm install / pip install / brew install
+        //   sudo <anything>
+        //   curl -X POST (API writes)
+        //   any shell pipe involving write redirection (>, >>)
+      ]
+    }
+  }
+}

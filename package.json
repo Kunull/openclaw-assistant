@@ -1,0 +1,11 @@
+{
+  "name": "jomon-assistant",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "organize": "node scripts/organize-knowledge.js"
+  },
+  "dependencies": {
+    "chokidar": "^4.0.3"
+  }
+}

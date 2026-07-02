@@ -1,0 +1,179 @@
+{
+  // ─── Model provider ──────────────────────────────────────────────────────────
+  "models": {
+    "providers": {
+      "local-ollama": {
+        "api": "ollama",
+        "baseUrl": "http://localhost:11434",
+        "apiKey": "ollama",
+        "models": [
+          { "id": "qwen2.5:3b" },
+          { "id": "qwen3-embedding:0.6b" }
+        ]
+      }
+    }
+  },
+
+  // ─── Agent defaults ───────────────────────────────────────────────────────────
+  "agents": {
+    "defaults": {
+      "model": "local-ollama/qwen2.5:3b",
+      "compaction": {
+        "memoryFlush": { "model": "local-ollama/qwen2.5:3b" }
+      },
+      "memorySearch": {
+        "provider": "local-ollama",
+        "model": "qwen3-embedding:0.6b",
+        "enabled": true,
+        "extraPaths": ["~/projects/jomon/assistant/knowledge"],
+        "query": {
+          "hybrid": {
+            "enabled": true,
+            "vectorWeight": 0.7,
+            "textWeight": 0.3,
+            "mmr": { "enabled": true },
+            "temporalDecay": { "enabled": true }
+          }
+        }
+      }
+    }
+  },
+
+  // ─── Tool access tiers ────────────────────────────────────────────────────────
+  //
+  //  TIER 1 — always allowed, no prompt:
+  //    memory_*, web_search, web_fetch, fs reads, safe shell patterns (see exec-approvals.json)
+  //
+  //  TIER 2 — blocked outright:
+  //    nothing blocked at the tool level, but dangerous shell commands are blocked
+  //    via exec-approvals.json argPattern rules
+  //
+  //  TIER 3 — requires approval via Telegram before execution:
+  //    any shell exec not on the allowlist, fs writes outside workspace,
+  //    plugin actions that mutate external state
+  //
+  "tools": {
+    // Tier-1 tools that never need a prompt
+    "allow": [
+      "memory_search",
+      "memory_get",
+      "memory_write",
+      "web_search",
+      "web_fetch",
+      "fs_read",
+      "fs_list"
+    ],
+
+    "exec": {
+      // "allowlist" = only commands in exec-approvals.json run silently;
+      // everything else triggers the ask flow
+      "security": "allowlist",
+      "ask": "on-miss",             // ask via approval channel when not on allowlist
+      "strictInlineEval": true,     // inline code eval also requires approval
+      "applyPatch": {
+        "workspaceOnly": true       // patch operations stay inside the workspace
+      }
+    },
+
+    "fs": {
+      "workspaceOnly": false        // reads anywhere; writes are gated by exec policy
+    },
+
+    "elevated": {
+      "enabled": true,
+      // Empty allowFrom means no one can self-escalate;
+      // elevated commands always go through the approval flow
+      "allowFrom": []
+    }
+  },
+
+  // ─── Approval routing ─────────────────────────────────────────────────────────
+  //
+  //  When the agent needs permission it sends an interactive card to your Telegram.
+  //  Reply /approve <id> yes  or  /approve <id> no  (or use the inline buttons).
+  //
+  //  How to find your Telegram chat ID:
+  //    1. Open Telegram and message @userinfobot
+  //    2. It replies with your numeric ID — paste it below replacing YOUR_CHAT_ID
+  //
+  "approvals": {
+    "exec": {
+      "enabled": true,
+      // "targets" = only the listed channels receive approval cards
+      "mode": "targets",
+      "agentFilter": ["main"],
+      "targets": [
+        {
+          "channel": "telegram",
+          "to": "YOUR_CHAT_ID"      // ← replace with your Telegram numeric chat ID
+        }
+      ]
+    },
+    // Plugin-level approvals (e.g. sending a message, writing a calendar event)
+    // also route to the same Telegram chat
+    "plugin": {
+      "enabled": true,
+      "targets": [
+        {
+          "channel": "telegram",
+          "to": "YOUR_CHAT_ID"      // ← same ID as above
+        }
+      ]
+    }
+  },
+
+  // ─── Channel access control ──────────────────────────────────────────────────
+  "channels": {
+    "telegram": {
+      // Only your account can DM the bot; strangers are blocked
+      "dmPolicy": "allowlist",
+      // Pairing lets you approve new devices from Telegram itself
+      "pairingEnabled": true
+    },
+    "whatsapp": {
+      "dmPolicy": "allowlist"
+    }
+  },
+
+  // ─── Plugins ──────────────────────────────────────────────────────────────────
+  "plugins": {
+    "entries": {
+      "memory-wiki": {
+        "enabled": true,
+        "config": {
+          "vaultMode": "isolated",
+          "vault": {
+            "path": "~/projects/jomon/assistant/knowledge",
+            "renderMode": "native"
+          },
+          "bridge": {
+            "enabled": true,
+            "indexDailyNotes": true,
+            "readMemoryArtifacts": true,
+            "followMemoryEvents": true
+          },
+          "ingest": {
+            "autoCompile": true,
+            "maxConcurrentJobs": 2,
+            "allowUrlIngest": true
+          },
+          "search": { "backend": "shared", "corpus": "all" },
+          "render": {
+            "preserveHumanBlocks": true,
+            "createBacklinks": true,
+            "createDashboards": true
+          }
+        }
+      },
+
+      "memory-core": {
+        "config": {
+          "dreaming": {
+            "enabled": true,
+            "frequency": "0 3 * * *"
+          }
+        }
+      }
+    }
+  }
+}
